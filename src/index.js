@@ -31,13 +31,13 @@ const getPrivateKeyRandomly = () => {
 
 const getTokenInAddressRandomly = () => {
 
-    return sample(tokenInAddresses);
+    return sample(tokenInAndOutAddress);
 
 }
 
 const getTokenOutAddressRandomly = () => {
 
-    return sample(tokenOutAddresses);
+    return sample(tokenInAndOutAddress);
 
 }
 
