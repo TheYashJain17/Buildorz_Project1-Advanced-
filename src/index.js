@@ -1,19 +1,27 @@
 const cron = require('node-cron');
 
 const { sample, random } = require('lodash');
+require("dotenv").config({ path: __dirname + "/./../.env" });
 
 const ethers = require('ethers');
-
-const TypeAITokenContractAddress = process.env.TYPEAI_TOKEN_ADDRESS;
-
 const { getProvider, getSigner } = require('./getSigner');
+const { computeFee } = require('./computeFees');
+const { swap } = require('./swap');
 
-
+const feeReceiverAddress = process.env.SWAP_FEE_RECEIVER_ADDRESS;
 const privateKeys = [];
 
-const tokenInAddresses = ["0x6B175474E89094C44Da98b954EedeAC495271d0F" , "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" , "0xdAC17F958D2ee523a2206206994597C13D831ec7" , "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599"]; //DAI , USDC , USDT , WBTC
-
-const tokenOutAddresses = ["0xD533a949740bb3306d119CC777fa900bA034cd52" , "0x408e41876cCCDC0F92210600ef50372656052a38" , "0xBBbbCA6A901c926F240b89EacB641d8Aec7AEafD" , "0xE41d2489571d322189246DaFA5ebDe1F4699F498"]; //CRV , REN , LRC , ZRX
+const tokenInAndOutAddress = ["0x6B175474E89094C44Da98b954EedeAC495271d0F" , 
+                              "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48" , 
+                              "0xdAC17F958D2ee523a2206206994597C13D831ec7" , 
+                              "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599" , 
+                              "0xD533a949740bb3306d119CC777fa900bA034cd52" , 
+                              "0x408e41876cCCDC0F92210600ef50372656052a38" , 
+                              "0xBBbbCA6A901c926F240b89EacB641d8Aec7AEafD" , 
+                              "0xE41d2489571d322189246DaFA5ebDe1F4699F498" ,
+                              "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE" ,
+                              "0x443459d45c30a03f90037d011cbe22e2183d3b12"]; 
+                              //DAI , USDC , USDT , WBTC , CRV , REN , LRC , ZRX , ETH , CONTRACT
 
 const getPrivateKeyRandomly = () => {
 
@@ -65,6 +73,14 @@ const swapToken = async () => {
 
     const amount = getRandomAmount(minAmount, maxAmount);
 
+    const fee = await computeFee(amount, privateKey);
+
+    const slippage = 200;
+
+    const signer = await getSigner(privateKey);
+
+    await swap(tokenOut, tokenIn, amount, feeReceiverAddress, fee, signer, slippage);
+
 
 }
 
@@ -93,47 +109,6 @@ const getTokenInBalance = async (_privatekey, _tokenIn) => {
 
 }
 
-const computeFee = async(amount , userAddress) => {
-
-    let fee;
-
-    const tokenBalance = getTokenInBalance(userAddress , TypeAITokenContractAddress);
-
-    const totalSupply = BigInt(10000000000000000000000000);
-
-    const userTokenPercentage = BigInt(tokenBalance) * BigInt(100) / BigInt(totalSupply);
-
-    console.log(userTokenPercentage);
-
-    if (userTokenPercentage > 2){
-
-        fee = 0;
-
-    }else if(userTokenPercentage > 1.5 && userTokenPercentage <= 2){
-
-        fee = BigInt(amount)/BigInt(200);
-
-    }else if(userTokenPercentage > 1 && userTokenPercentage <= 1.5){
-
-
-        fee = BigInt(amount) * BigInt(75) / BigInt(10000);
-
-    }else if(userTokenPercentage > 0.5 && userTokenPercentage <= 1){
-
-        fee = BigInt(amount) * BigInt(90) / BigInt(10000);
-
-    }else if(userTokenPercentage <= 0.5){
-
-        fee = BigInt(amount) / BigInt(100);
-
-    }
-
-    console.log("Calculated Fee is:" , fee)
-
-    return fee
-
-}
-
 
 
 const scheduledTask = cron.schedule('* */2 * * *', () => {
@@ -142,11 +117,9 @@ const scheduledTask = cron.schedule('* */2 * * *', () => {
 
     setTimeout(() => {
 
-        // swapToken()
+        swapToken()
 
         console.log(`The random delay is of ${randomDelay}`)
-
-        console.log("Its Working");
 
     }, randomDelay);
 
@@ -154,7 +127,4 @@ const scheduledTask = cron.schedule('* */2 * * *', () => {
 
 scheduledTask.start();
 
-
-
-
-
+module.exports = { getTokenInBalance }
